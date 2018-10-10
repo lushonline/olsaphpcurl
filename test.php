@@ -277,18 +277,59 @@ function testCurlTLSConnection($ctx=null)
 	print "Attempting to download OLSA WSDL: ".$wsdl."\r\n";
 
 	try {
-		$content = file_get_contents($wsdl,false,$ctx);
+		$content = '';
+		
+		$fp = fopen($wsdl, 'rb', false, $ctx);
+		$content = stream_get_contents($fp);
+		$meta = stream_get_meta_data($fp);
 
+		//Use 400 response if no PHP http headers returned by PHP HTTP wrapper
+		$hdrs = array('HTTP/1.1 400 Bad request');
+		if (!empty($meta["wrapper_data"]->headers)) {
+			 $hdrs = $meta["wrapper_data"]->headers;
+		};
+		
+		$curlinfo = array();
+		if (!empty($meta["wrapper_data"]->info)) {
+			 $curlinfo = $meta["wrapper_data"]->info;
+		};
+		
 		if ($content === false) {
 			// Handle the error
 			print "WSDL Download: Fail"."\r\n";
+			print "\r\n"."++++++++++++++++++++++++++++++++++++++++"."\r\n";
+			print "Returned Data"."\r\n";
+			print "HTTP Response Headers"."\r\n";
+			print_r($hdrs);
+			print "\r\n";
+			print "cURL Info"."\r\n";
+			print_r($curlinfo);
 			print "\r\n"."----------------------------------------"."\r\n";
 			return false;
 		} else {
-			print "WSDL Download: Success"."\r\n";
-			print "\r\n"."----------------------------------------"."\r\n";
+			//Check the contents is the Skillsoft WSDL by looking at first
+			if (strpos($content, 'xmlns:olsa="http://www.skillsoft.com/services/olsa_v1_0/"') !== false) {
+				print "WSDL Download: Success"."\r\n";
+				return true;
+			} else {
+				print "WSDL Download: Fail. Returned WSDL did not contain Skillsoft OLSA NameSpace xmlns:olsa=\"http://www.skillsoft.com/services/olsa_v1_0/\""."\r\n";
+				print "\r\n"."++++++++++++++++++++++++++++++++++++++++"."\r\n";
+				print "Returned Data"."\r\n";
+				print "HTTP Response Headers"."\r\n";
+				print_r($hdrs);
+				print "\r\n";
+				print "cURL Info"."\r\n";
+				print_r($curlinfo);
+				print "\r\n";
+				print "Contents"."\r\n";
+				print_r($content);
+				print "\r\n"."----------------------------------------"."\r\n";
+				return false;
+			}
+			return false;
+			
 			//print_r($content);
-			return true;
+			
 		}
 	} catch (Exception $e) {
 		// Handle exception
