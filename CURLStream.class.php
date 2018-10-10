@@ -2,7 +2,7 @@
 /*****************************************************/
 /* Class:   CURLStream                               */
 /* Author:	Martin Holden, SkillSoft                 */
-/* Date:	Aug 2018                                 */
+/* Date:	Oct 2018                                 */
 /*                                                   */
 /* Creates a new Stream Class use CURL as the default*/
 /* so that we can have SOAPClient download WSDL using*/
@@ -36,6 +36,8 @@ class CURLStream {
   private $buffer;
   private $pos;
   
+  public $headers;
+  public $info;
   public $context;
 
   const WRAPPER_NAME = "CURLStream";
@@ -180,7 +182,6 @@ class CURLStream {
 	$context = $contexts[self::WRAPPER_NAME];
 
     $proxy = empty($context['proxy']) ? '' : $context['proxy'];
-	//print_r($proxy);
 	
     //echo "[".self::WRAPPER_NAME."::createBuffer] create buffer from : $path\n";
     $this->ch = curl_init($path);
@@ -192,8 +193,6 @@ class CURLStream {
 	
 	//Force TLS 1.2
 	curl_setopt($this->ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
-	
-	
 	
 	if (isset($proxy)) {
 		curl_setopt($this->ch, CURLOPT_HTTPPROXYTUNNEL, false);
@@ -213,8 +212,23 @@ class CURLStream {
 		}
 	}
 	
+	$headers = array();
+	
+	curl_setopt($this->ch, CURLOPT_HEADERFUNCTION, function ($ch, $header) use (&$headers) {
+		$value = str_replace(array("\r", "\n"), '', $header);
+		if (!empty($value)) {
+			$headers[] = $value;
+		}
+		return strlen($header);
+	});
+
+	
 	
     $this->buffer = curl_exec($this->ch);
+	$this->info = curl_getinfo($this->ch);
+
+	$this->headers = $headers;
+	
 
 	if($errno = curl_errno($this->ch)) {
 			$error_message = curl_error($this->ch);
